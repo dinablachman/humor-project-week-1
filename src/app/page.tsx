@@ -1,9 +1,86 @@
-import { createSupabaseClient, type Movie } from "@/lib/supabase";
+import Link from "next/link";
+import {
+  getCurrentProfile,
+  getCurrentUser,
+  isProfileComplete,
+} from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
+import type { Movie } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
+// Gated UI on a public page: the movie list is for everyone, the card at the
+// bottom changes with the visitor's sign-in state.
+async function MembersCard() {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return (
+      <aside className="mt-12 rounded-xl border border-dashed border-neutral-300 p-6 dark:border-neutral-700">
+        <h2 className="text-lg font-medium">Members area</h2>
+        <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+          Sign in with Google to get a profile, upload a photo, and see the
+          dashboard.
+        </p>
+        <Link
+          href="/login"
+          className="mt-4 inline-block rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
+        >
+          Sign in
+        </Link>
+      </aside>
+    );
+  }
+
+  const profile = await getCurrentProfile();
+
+  if (!isProfileComplete(profile)) {
+    return (
+      <aside className="mt-12 rounded-xl border border-amber-300 bg-amber-50 p-6 dark:border-amber-800 dark:bg-amber-950">
+        <h2 className="text-lg font-medium text-amber-900 dark:text-amber-100">
+          Finish setting up your profile
+        </h2>
+        <p className="mt-1 text-sm text-amber-800 dark:text-amber-200">
+          We still need your first and last name before the dashboard opens.
+        </p>
+        <Link
+          href="/onboarding"
+          className="mt-4 inline-block rounded-lg bg-amber-900 px-4 py-2 text-sm font-medium text-white hover:bg-amber-800 dark:bg-amber-200 dark:text-amber-950 dark:hover:bg-amber-100"
+        >
+          Add your name
+        </Link>
+      </aside>
+    );
+  }
+
+  return (
+    <aside className="mt-12 rounded-xl border border-neutral-200 p-6 dark:border-neutral-800">
+      <h2 className="text-lg font-medium">
+        Welcome back, {profile?.first_name}.
+      </h2>
+      <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
+        Your dashboard and profile are ready.
+      </p>
+      <div className="mt-4 flex gap-3">
+        <Link
+          href="/dashboard"
+          className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
+        >
+          Open dashboard
+        </Link>
+        <Link
+          href="/profile"
+          className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-900"
+        >
+          Edit profile
+        </Link>
+      </div>
+    </aside>
+  );
+}
+
 export default async function Home() {
-  const supabase = createSupabaseClient();
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("movies")
     .select("id, title, release_year, director, genre")
@@ -50,6 +127,8 @@ export default async function Home() {
           ))}
         </ul>
       )}
+
+      <MembersCard />
     </main>
   );
 }
